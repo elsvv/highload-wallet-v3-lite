@@ -1,16 +1,16 @@
-import { compile, NetworkProvider } from '@ton/blueprint';
-import { mnemonicNew, mnemonicToPrivateKey } from '@ton/crypto';
-
 import { toNano } from '@ton/core';
-import { HighloadWalletV3, HWV3_DEFAULT_TIMEOUT, HWV3_SUBWALLET_ID } from '../wrappers/HighloadWalletV3';
+import { mnemonicNew, mnemonicToPrivateKey } from '@ton/crypto';
+import { compile, NetworkProvider } from '@ton/blueprint';
+
+import { HighloadWalletV3Lite, HWV3_DEFAULT_TIMEOUT, HWV3_SUBWALLET_ID } from '../wrappers/HighloadWalletV3Lite';
 
 export async function run(provider: NetworkProvider) {
-  const code = await compile('HighloadWalletV3');
+  const code = await compile('HighloadWalletV3Lite');
   const mnemonic = await mnemonicNew();
   console.log('mnemonic\n' + mnemonic.join(' '));
   const keyPair = await mnemonicToPrivateKey(mnemonic);
-  const highloadWalletV3 = provider.open(
-    HighloadWalletV3.createFromConfig(
+  const highloadWalletV3Lite = provider.open(
+    HighloadWalletV3Lite.createFromConfig(
       {
         publicKey: keyPair.publicKey,
         subwalletId: HWV3_SUBWALLET_ID,
@@ -20,7 +20,7 @@ export async function run(provider: NetworkProvider) {
     ),
   );
 
-  await highloadWalletV3.sendDeploy(provider.sender(), toNano('1.5'));
+  await highloadWalletV3Lite.sendDeploy(provider.sender(), toNano('1.5'));
 
-  await provider.waitForDeploy(highloadWalletV3.address);
+  await provider.waitForDeploy(highloadWalletV3Lite.address);
 }
