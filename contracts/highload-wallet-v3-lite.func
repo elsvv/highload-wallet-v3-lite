@@ -13,7 +13,6 @@ const int error::invalid_signature = 33;
 const int error::invalid_subwallet_id = 34;
 const int error::invalid_created_at = 35;
 const int error::already_executed = 36;
-const int error::invalid_message_to_send = 37;
 
 const int KEY_SIZE = 13;
 const int SIGNATURE_SIZE = 512;
