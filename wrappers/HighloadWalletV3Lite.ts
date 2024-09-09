@@ -5,15 +5,11 @@ import {
   Contract,
   contractAddress,
   ContractProvider,
-  internal as internal_relaxed,
-  MessageRelaxed,
   OutAction,
   OutActionSendMsg,
   Sender,
   SendMode,
-  storeMessageRelaxed,
   storeOutList,
-  toNano,
 } from '@ton/core';
 
 import { sign } from '@ton/crypto';
@@ -21,11 +17,8 @@ import { HighloadQueryId } from './HighloadQueryId';
 
 export type HighloadWalletV3LiteConfig = {
   publicKey: Buffer;
-  subwalletId: number;
   timeout: number;
 };
-
-export const HWV3_SUBWALLET_ID = 239;
 
 export const HWV3_DEFAULT_TIMEOUT = 128;
 
@@ -34,8 +27,6 @@ export enum HWV3OP {
 }
 export abstract class HWV3Errors {
   static invalid_signature = 33;
-  static invalid_subwallet = 34;
-  static invalid_creation_time = 35;
   static already_executed = 36;
 }
 
@@ -50,7 +41,6 @@ export const TIMEOUT_SIZE = 22;
 export function highloadWalletV3LiteConfigToCell(config: HighloadWalletV3LiteConfig): Cell {
   return beginCell()
     .storeBuffer(config.publicKey)
-    .storeUint(config.subwalletId, 32)
     .storeUint(0, 1 + 1 + TIMESTAMP_SIZE)
     .storeUint(config.timeout, TIMEOUT_SIZE)
     .endCell();
@@ -81,23 +71,11 @@ export class HighloadWalletV3Lite implements Contract {
     });
   }
 
-  static packExternalMessage(
-    secretKey: Buffer,
-    msgActions: OutActionSendMsg[],
-    opts: {
-      query_id: bigint | HighloadQueryId;
-      createdAt: number;
-      subwalletId: number;
-    },
-  ) {
-    const queryId = opts.query_id instanceof HighloadQueryId ? opts.query_id.getQueryId() : opts.query_id;
+  static packExternalMessage(secretKey: Buffer, msgActions: OutActionSendMsg[], queryId: bigint | HighloadQueryId) {
+    const _queryId = queryId instanceof HighloadQueryId ? queryId.getQueryId() : queryId;
+    const actions = HighloadWalletV3Lite.packActions(msgActions);
 
-    const messageInner = beginCell()
-      .storeUint(opts.subwalletId, 32)
-      .storeRef(HighloadWalletV3Lite.packActions(msgActions))
-      .storeUint(queryId, 23)
-      .storeUint(opts.createdAt, TIMESTAMP_SIZE)
-      .endCell();
+    const messageInner = beginCell().storeRef(actions).storeUint(_queryId, 23).endCell();
 
     return beginCell().storeBuffer(sign(messageInner.hash(), secretKey)).storeRef(messageInner).endCell();
   }
@@ -106,31 +84,9 @@ export class HighloadWalletV3Lite implements Contract {
     provider: ContractProvider,
     secretKey: Buffer,
     msgActions: OutActionSendMsg[],
-    opts: {
-      query_id: bigint | HighloadQueryId;
-      createdAt: number;
-      subwalletId: number;
-    },
+    queryId: bigint | HighloadQueryId,
   ) {
-    return provider.external(HighloadWalletV3Lite.packExternalMessage(secretKey, msgActions, opts));
-  }
-
-  async sendBatch(
-    provider: ContractProvider,
-    secretKey: Buffer,
-    messages: OutActionSendMsg[],
-    subwallet: number,
-    query_id: HighloadQueryId,
-    createdAt?: number,
-  ) {
-    if (createdAt == undefined) {
-      createdAt = Math.floor(Date.now() / 1000);
-    }
-    return await this.sendExternalMessage(provider, secretKey, messages, {
-      query_id: query_id,
-      createdAt: createdAt,
-      subwalletId: subwallet,
-    });
+    return provider.external(HighloadWalletV3Lite.packExternalMessage(secretKey, msgActions, queryId));
   }
 
   static packActions(actions: OutAction[]) {
@@ -146,11 +102,6 @@ export class HighloadWalletV3Lite implements Contract {
     const res = (await provider.get('get_public_key', [])).stack;
     const pubKeyU = res.readBigNumber();
     return Buffer.from(pubKeyU.toString(16).padStart(32 * 2, '0'), 'hex');
-  }
-
-  async getSubwalletId(provider: ContractProvider): Promise<number> {
-    const res = (await provider.get('get_subwallet_id', [])).stack;
-    return res.readNumber();
   }
 
   async getTimeout(provider: ContractProvider): Promise<number> {
