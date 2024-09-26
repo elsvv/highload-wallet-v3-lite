@@ -10,6 +10,7 @@ builder store_zeroes(builder b, int x) asm "STZEROES";
 const int op::internal_transfer = 0xae42e5a4;
 
 const int error::invalid_signature = 33;
+const int error::invalid_created_at = 35;
 const int error::already_executed = 36;
 
 const int KEY_SIZE = 13;
@@ -58,12 +59,14 @@ const int BIT_NUMBER_SIZE = 10; ;; 2^10 = 1024
   int last_clean_time = data_slice~load_uint(TIMESTAMP_SIZE);
   int timeout = data_slice~load_uint(TIMEOUT_SIZE);
 
-  if (last_clean_time < (now() - timeout)) {
+  int now_ts = now();
+
+  if (last_clean_time < (now_ts - timeout)) {
     (old_queries, queries) = (queries, null());
-    if (last_clean_time < (now() - (timeout * 2))) {
+    if (last_clean_time < (now_ts - (timeout * 2))) {
       old_queries = null();
     }
-    last_clean_time = now();
+    last_clean_time = now_ts;
   }
 
   throw_unless(error::invalid_signature, check_signature(msg_inner_hash, signature, public_key));
@@ -71,7 +74,10 @@ const int BIT_NUMBER_SIZE = 10; ;; 2^10 = 1024
   slice msg_inner_slice = msg_inner.begin_parse();
   cell actions = msg_inner_slice~load_ref();
   int shift = msg_inner_slice~load_uint(KEY_SIZE);
-  int bit_number = msg_inner_slice.preload_uint(BIT_NUMBER_SIZE);
+  int bit_number = msg_inner_slice~load_uint(BIT_NUMBER_SIZE);
+  int created_at = msg_inner_slice.preload_uint(TIMESTAMP_SIZE);
+
+  throw_unless(error::invalid_created_at, (created_at - timeout) <= now_ts);
 
   (cell value, int found) = old_queries.udict_get_ref?(KEY_SIZE, shift);
   if (found) {

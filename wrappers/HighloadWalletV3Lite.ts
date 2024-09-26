@@ -71,11 +71,16 @@ export class HighloadWalletV3Lite implements Contract {
     });
   }
 
-  static packExternalMessage(secretKey: Buffer, msgActions: OutActionSendMsg[], queryId: bigint | HighloadQueryId) {
+  static packExternalMessage(
+    secretKey: Buffer,
+    msgActions: OutActionSendMsg[],
+    queryId: bigint | HighloadQueryId,
+    createdAt: number,
+  ) {
     const _queryId = queryId instanceof HighloadQueryId ? queryId.getQueryId() : queryId;
     const actions = HighloadWalletV3Lite.packActions(msgActions);
 
-    const messageInner = beginCell().storeRef(actions).storeUint(_queryId, 23).endCell();
+    const messageInner = beginCell().storeRef(actions).storeUint(_queryId, 23).storeUint(createdAt, 64).endCell();
 
     return beginCell().storeBuffer(sign(messageInner.hash(), secretKey)).storeRef(messageInner).endCell();
   }
@@ -85,8 +90,9 @@ export class HighloadWalletV3Lite implements Contract {
     secretKey: Buffer,
     msgActions: OutActionSendMsg[],
     queryId: bigint | HighloadQueryId,
+    createdAt: number,
   ) {
-    return provider.external(HighloadWalletV3Lite.packExternalMessage(secretKey, msgActions, queryId));
+    return provider.external(HighloadWalletV3Lite.packExternalMessage(secretKey, msgActions, queryId, createdAt));
   }
 
   static packActions(actions: OutAction[]) {

@@ -16,5 +16,7 @@ export async function run(provider: NetworkProvider) {
 
   const keyPair = await mnemonicToPrivateKey(process.env.HW_MNEMONIC!.split(' '));
 
-  await highloadWalletV3Lite.sendExternalMessage(keyPair.secretKey, msgActions, 190n);
+  const nowSec = Math.floor(Date.now() / 1000) - 20;
+
+  await highloadWalletV3Lite.sendExternalMessage(keyPair.secretKey, msgActions, 190n, nowSec);
 }
